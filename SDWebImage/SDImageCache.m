@@ -128,6 +128,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
 
 #if TARGET_OS_IPHONE
         // Subscribe to app events
+        // 重复定义了。
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(clearMemory)
                                                      name:UIApplicationDidReceiveMemoryWarningNotification
@@ -195,13 +196,13 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
     return [paths[0] stringByAppendingPathComponent:fullNamespace];
 }
-
+// 这个方法的意思是保持image到内存里面。解决保存到disk，但是有两个条件，从服务器返回的imageData或者要求重新生产imageData。
 - (void)storeImage:(UIImage *)image recalculateFromImage:(BOOL)recalculate imageData:(NSData *)imageData forKey:(NSString *)key toDisk:(BOOL)toDisk {
     if (!image || !key) {
         return;
     }
     // if memory cache is enabled
-    if (self.shouldCacheImagesInMemory) {
+    if (self.shouldCacheImagesInMemory) {//memcache会不会爆?
         NSUInteger cost = SDCacheCostForImage(image);
         [self.memCache setObject:image forKey:key cost:cost];
     }
@@ -247,6 +248,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
                 }
 
                 // get cache Path for image key
+                // 要慎重，这里会出现同样的key，但是出现了不同的cachePathForKey，这是个比较奇怪的问题
                 NSString *cachePathForKey = [self defaultCachePathForKey:key];
                 // transform to NSUrl
                 NSURL *fileURL = [NSURL fileURLWithPath:cachePathForKey];
@@ -285,7 +287,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
     
     return exists;
 }
-
+//为什么有这个异步的类
 - (void)diskImageExistsWithKey:(NSString *)key completion:(SDWebImageCheckCacheCompletionBlock)completionBlock {
     dispatch_async(_ioQueue, ^{
         BOOL exists = [_fileManager fileExistsAtPath:[self defaultCachePathForKey:key]];
@@ -402,8 +404,9 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
         }
 
         @autoreleasepool {
+            //在block的外面使用autoreleasepool
             UIImage *diskImage = [self diskImageForKey:key];
-            if (diskImage && self.shouldCacheImagesInMemory) {
+            if (diskImage && self.shouldCacheImagesInMemory) {//因为内存的缓冲可能会被失效，所以如果找到了，那么再次添加到内存缓存里。
                 NSUInteger cost = SDCacheCostForImage(diskImage);
                 [self.memCache setObject:diskImage forKey:key cost:cost];
             }
@@ -434,7 +437,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
     if (key == nil) {
         return;
     }
-
+// 这里是漏洞吧。如果本意是删除disk缓存，不小心却删了mem的缓存。
     if (self.shouldCacheImagesInMemory) {
         [self.memCache removeObjectForKey:key];
     }
@@ -601,9 +604,11 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
 - (NSUInteger)getSize {
     __block NSUInteger size = 0;
     dispatch_sync(self.ioQueue, ^{
+        // 这里没有使用includingPropertiesForKeys 带这个参数的enumerateAtPath函数！？
         NSDirectoryEnumerator *fileEnumerator = [_fileManager enumeratorAtPath:self.diskCachePath];
         for (NSString *fileName in fileEnumerator) {
             NSString *filePath = [self.diskCachePath stringByAppendingPathComponent:fileName];
+            // 这里有另外一个例外，使用了sharedmanager。而不是_fileManager;
             NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil];
             size += [attrs fileSize];
         }

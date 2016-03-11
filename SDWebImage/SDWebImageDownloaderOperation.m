@@ -54,7 +54,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
         _shouldDecompressImages = YES;
         _shouldUseCredentialStorage = YES;
         _options = options;
-        _progressBlock = [progressBlock copy];
+        _progressBlock = [progressBlock copy];//必须是copy而来的。
         _completedBlock = [completedBlock copy];
         _cancelBlock = [cancelBlock copy];
         _executing = NO;
@@ -114,7 +114,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
             CFRunLoopRunInMode(kCFRunLoopDefaultMode, 10, false);
         }
         else {
-            CFRunLoopRun();
+            CFRunLoopRun();//这是为了在后台也下载数据吗？
         }
 
         if (!self.isFinished) {
@@ -123,7 +123,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
         }
     }
     else {
-        if (self.completedBlock) {
+        if (self.completedBlock) {// 如果connnect没有成功也认为是数据已经返回，不过数据未空而已。
             self.completedBlock(nil, nil, [NSError errorWithDomain:NSURLErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : @"Connection can't be initialized"}], YES);
         }
     }
@@ -133,6 +133,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
     if(!UIApplicationClass || ![UIApplicationClass respondsToSelector:@selector(sharedApplication)]) {
         return;
     }
+    //为什么又要end，开头的时候，才刚刚重启的？
     if (self.backgroundTaskId != UIBackgroundTaskInvalid) {
         UIApplication * app = [UIApplication performSelector:@selector(sharedApplication)];
         [app endBackgroundTask:self.backgroundTaskId];
@@ -214,6 +215,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
     
     //'304 Not Modified' is an exceptional one
+    // 表示下载是ok的，已经下载好足够的数据
     if (![response respondsToSelector:@selector(statusCode)] || ([((NSHTTPURLResponse *)response) statusCode] < 400 && [((NSHTTPURLResponse *)response) statusCode] != 304)) {
         NSInteger expected = response.expectedContentLength > 0 ? (NSInteger)response.expectedContentLength : 0;
         self.expectedSize = expected;
@@ -262,7 +264,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
         // Update the data source, we must pass ALL the data, not just the new bytes
         CGImageSourceRef imageSource = CGImageSourceCreateWithData((__bridge CFDataRef)self.imageData, NULL);
 
-        if (width + height == 0) {
+        if (width + height == 0) {//刚刚开始下载，保存下图片的方向。
             CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, NULL);
             if (properties) {
                 NSInteger orientationValue = -1;
@@ -282,7 +284,9 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
             }
 
         }
-
+        /**
+         *  开始下载了。
+         */
         if (width + height > 0 && totalSize < self.expectedSize) {
             // Create the image
             CGImageRef partialImageRef = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
@@ -394,7 +398,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
             if (CGSizeEqualToSize(image.size, CGSizeZero)) {
                 completionBlock(nil, nil, [NSError errorWithDomain:SDWebImageErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : @"Downloaded image has 0 pixels"}], YES);
             }
-            else {
+            else {//最正常的情况。
                 completionBlock(image, self.imageData, nil, YES);
             }
         } else {

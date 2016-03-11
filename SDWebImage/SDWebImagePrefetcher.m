@@ -81,6 +81,8 @@
              ];
         }
         if (self.prefetchURLs.count > self.requestedCount) {
+            //如果从第三个开始，那么这里会出现，有从第二个开始请求的情况,这样其实
+            //变成了目的是请求4，5.而变成了请求2，3，4，5
             dispatch_async(self.prefetcherQueue, ^{
                 [self startPrefetchingAtIndex:self.requestedCount];
             });
@@ -123,6 +125,7 @@
     } else {
         // Starts prefetching from the very first image on the list with the max allowed concurrency
         NSUInteger listCount = self.prefetchURLs.count;
+        // 为什么会有这么多循环，startPrefetchingAtIndex本身就可以形成循环请求的。
         for (NSUInteger i = 0; i < self.maxConcurrentDownloads && self.requestedCount < listCount; i++) {
             [self startPrefetchingAtIndex:i];
         }

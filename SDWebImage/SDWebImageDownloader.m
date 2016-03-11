@@ -115,7 +115,8 @@ static NSString *const kCompletedCallbackKey = @"completed";
 - (id <SDWebImageOperation>)downloadImageWithURL:(NSURL *)url options:(SDWebImageDownloaderOptions)options progress:(SDWebImageDownloaderProgressBlock)progressBlock completed:(SDWebImageDownloaderCompletedBlock)completedBlock {
     __block SDWebImageDownloaderOperation *operation;
     __weak __typeof(self)wself = self;
-
+    // 为下载图片的 进行中‘已完结 等的callback 保持起来。并且启动 下载的request。
+    // 在外部的SDWebImageDownloaderProgressBlock里加了一层SDWebImageDownloaderProgressBlock
     [self addProgressCallback:progressBlock completedBlock:completedBlock forURL:url createCallback:^{
         NSTimeInterval timeoutInterval = wself.downloadTimeout;
         if (timeoutInterval == 0.0) {
@@ -143,6 +144,7 @@ static NSString *const kCompletedCallbackKey = @"completed";
                                                              });
                                                              for (NSDictionary *callbacks in callbacksForURL) {
                                                                  dispatch_async(dispatch_get_main_queue(), ^{
+                                                                     // 因为是异步的而且是多并发，所以必须保存progressblock等。否则可以直接引用参数里的progressblock
                                                                      SDWebImageDownloaderProgressBlock callback = callbacks[kProgressCallbackKey];
                                                                      if (callback) callback(receivedSize, expectedSize);
                                                                  });

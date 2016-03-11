@@ -35,7 +35,7 @@
             if (!image) {
                 continue;
             }
-
+            // 每幅图片有一定的存活时间，连贯播放就形成了动画：
             duration += [self sd_frameDurationAtIndex:i source:source];
 
             [images addObject:[UIImage imageWithCGImage:image scale:[UIScreen mainScreen].scale orientation:UIImageOrientationUp]];

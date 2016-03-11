@@ -64,6 +64,7 @@ static char TAG_ACTIVITY_SHOW;
             if (!wself) return;
             dispatch_main_sync_safe(^{
                 if (!wself) return;
+                // 有image说明了
                 if (image && (options & SDWebImageAvoidAutoSetImage) && completedBlock)
                 {
                     completedBlock(image, error, cacheType, url);

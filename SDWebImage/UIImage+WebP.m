@@ -34,6 +34,7 @@ static void FreeImageData(void *info, const void *data, size_t size)
     }
 
     config.output.colorspace = config.input.has_alpha ? MODE_rgbA : MODE_RGB;
+    //use_threads: 是否启用 pthread 多线程解码。该参数只对宽度大于 512 的有损图片起作用。开启后内部会用多线程解码，CPU 占用会更高，解码时间平均能缩短 10%～20%。
     config.options.use_threads = 1;
 
     // Decode the WebP image data into a RGBA value array.

@@ -16,7 +16,7 @@ inline UIImage *SDScaledImageForKey(NSString *key, UIImage *image) {
     if (!image) {
         return nil;
     }
-    
+    //支持 帧动画
     if ([image.images count] > 0) {
         NSMutableArray *scaledImages = [NSMutableArray array];
 

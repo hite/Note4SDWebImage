@@ -89,6 +89,7 @@
     
     [self.imageCache diskImageExistsWithKey:key completion:^(BOOL isInDiskCache) {
         // the completion block of checkDiskCacheForImageWithKey:completion: is always called on the main queue, no need to further dispatch
+        // imageCache内部函数入股偶有block的，全都都采用了dispatch到main thread的方案，所以这里不需要再切换。
         if (completionBlock) {
             completionBlock(isInDiskCache);
         }
@@ -126,7 +127,7 @@
     }
 
     __block SDWebImageCombinedOperation *operation = [SDWebImageCombinedOperation new];
-    __weak SDWebImageCombinedOperation *weakOperation = operation;
+    __weak SDWebImageCombinedOperation *weakOperation = operation;//这是干什么的，为什么是weak
 
     BOOL isFailedUrl = NO;
     @synchronized (self.failedURLs) {
@@ -147,6 +148,7 @@
     NSString *key = [self cacheKeyForURL:url];
 
     operation.cacheOperation = [self.imageCache queryDiskCacheForKey:key done:^(UIImage *image, SDImageCacheType cacheType) {
+        // 在这里处理 异常取消的情况。值得借鉴
         if (operation.isCancelled) {
             @synchronized (self.runningOperations) {
                 [self.runningOperations removeObject:operation];
@@ -154,13 +156,13 @@
 
             return;
         }
-
+        //如果图片不存在 或者图片需要强制刷新， 并且shouldDownloadImageForURL delgate表示需要继续下载
         if ((!image || options & SDWebImageRefreshCached) && (![self.delegate respondsToSelector:@selector(imageManager:shouldDownloadImageForURL:)] || [self.delegate imageManager:self shouldDownloadImageForURL:url])) {
-            if (image && options & SDWebImageRefreshCached) {
+            if (image && options & SDWebImageRefreshCached) {//
                 dispatch_main_sync_safe(^{
                     // If image was found in the cache but SDWebImageRefreshCached is provided, notify about the cached image
                     // AND try to re-download it in order to let a chance to NSURLCache to refresh it from server.
-                    completedBlock(image, nil, cacheType, YES, url);
+                    completedBlock(image, nil, cacheType, YES, url);//先返回回调一个旧的image是什么意思。？
                 });
             }
 
@@ -206,6 +208,7 @@
                     }
                 }
                 else {
+                    // 正常的情况
                     if ((options & SDWebImageRetryFailed)) {
                         @synchronized (self.failedURLs) {
                             [self.failedURLs removeObject:url];
@@ -213,10 +216,10 @@
                     }
                     
                     BOOL cacheOnDisk = !(options & SDWebImageCacheMemoryOnly);
-
+//                    需要全新获取并且本次下载没有下载成功的。因为上面已经执行了一次completion
                     if (options & SDWebImageRefreshCached && image && !downloadedImage) {
                         // Image refresh hit the NSURLCache cache, do not call the completion block
-                    }
+                    }// 如果有新下载的数据，而且容许下载好了直接使用，并且不是动画或者是动画且容许传输动画
                     else if (downloadedImage && (!downloadedImage.images || (options & SDWebImageTransformAnimatedImage)) && [self.delegate respondsToSelector:@selector(imageManager:transformDownloadedImage:withURL:)]) {
                         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
                             UIImage *transformedImage = [self.delegate imageManager:self transformDownloadedImage:downloadedImage withURL:url];
